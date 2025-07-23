@@ -26,15 +26,15 @@ export function useAuth(): AuthState & {
         
         if (session?.user) {
           console.log('User found, creating basic user object');
-          const user: User = {
+          const basicUser: User = {
             id: session.user.id,
-            username: session.user.email?.split('@')[0] || 'user',
+            username: 'Loading...',
             email: session.user.email || '',
             total_points: 0,
             avatar_url: undefined,
             created_at: session.user.created_at,
           };
-          setAuthState({ user, loading: false, error: null });
+          setAuthState({ user: basicUser, loading: false, error: null });
           
           setTimeout(() => {
             if (mounted) {
@@ -46,161 +46,154 @@ export function useAuth(): AuthState & {
           setAuthState({ user: null, loading: false, error: null });
         }
       } catch (error) {
-        console.error('Auth error:', error);
+        console.error('Auth check error:', error);
         if (mounted) {
-          setAuthState({ user: null, loading: false, error: null });
+          setAuthState({ user: null, loading: false, error: 'Authentication check failed' });
         }
       }
     };
 
-    const timeout = setTimeout(() => {
+    const timeoutId = setTimeout(() => {
       if (mounted) {
-        console.warn('Auth timeout reached');
         setAuthState(prev => ({ ...prev, loading: false }));
       }
-    }, 3000);
+    }, 5000);
 
-    checkAuth().finally(() => {
-      clearTimeout(timeout);
-    });
+    checkAuth();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log('Auth state changed:', event);
-      if (!mounted) return;
-      
-      if (event === 'SIGNED_IN' && session?.user) {
-        console.log('User signed in, creating basic user object');
-        const user: User = {
-          id: session.user.id,
-          username: session.user.email?.split('@')[0] || 'user',
-          email: session.user.email || '',
-          total_points: 0,
-          avatar_url: undefined,
-          created_at: session.user.created_at,
-        };
-        setAuthState({ user, loading: false, error: null });
-        
-        setTimeout(() => {
-          if (mounted) {
-            console.log('Fetching user points after sign in');
-            refreshUserPointsInternal(session.user.id);
-          }
-        }, 100);
-      } else if (event === 'SIGNED_OUT') {
-        setAuthState({ user: null, loading: false, error: null });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        console.log('Auth state changed:', event, session?.user?.email);
+        if (!mounted) return;
+
+        if (session?.user) {
+          const basicUser: User = {
+            id: session.user.id,
+            username: 'Loading...',
+            email: session.user.email || '',
+            total_points: 0,
+            avatar_url: undefined,
+            created_at: session.user.created_at,
+          };
+          setAuthState({ user: basicUser, loading: false, error: null });
+          
+          setTimeout(() => {
+            if (mounted) {
+              refreshUserPointsInternal(session.user.id);
+            }
+          }, 100);
+        } else {
+          setAuthState({ user: null, loading: false, error: null });
+        }
       }
-    });
+    );
 
     return () => {
       mounted = false;
+      clearTimeout(timeoutId);
       subscription.unsubscribe();
     };
   }, []);
 
   const refreshUserPointsInternal = async (userId: string) => {
     try {
-      const { data: userData } = await supabase
+      console.log('Fetching user data from database for user:', userId);
+      const { data: userData, error } = await supabase
         .from('users')
-        .select('total_points, username')
+        .select('username, total_points, avatar_url, created_at')
         .eq('id', userId)
         .single();
-      
+
+      if (error) {
+        console.error('Error fetching user data:', error);
+        return;
+      }
+
       if (userData) {
-        setAuthState(prev => prev.user ? {
-          ...prev,
-          user: {
-            ...prev.user,
+        console.log('Database user data:', userData);
+        setAuthState(prevState => ({
+          ...prevState,
+          user: prevState.user ? {
+            ...prevState.user,
+            username: userData.username || prevState.user.username,
             total_points: userData.total_points || 0,
-            username: userData.username || prev.user.username
-          }
-        } : prev);
+            avatar_url: userData.avatar_url,
+            created_at: userData.created_at || prevState.user.created_at,
+          } : null
+        }));
       }
     } catch (error) {
-      console.warn('Could not refresh user points internally:', error);
+      console.error('Error in refreshUserPointsInternal:', error);
     }
   };
 
   const login = async (email: string, password: string) => {
-    setAuthState(prev => ({ ...prev, loading: true, error: null }));
     try {
-      console.log('Attempting login...');
+      setAuthState(prev => ({ ...prev, loading: true, error: null }));
+      
       const { error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
-      if (error) {
-        console.error('Login error:', error);
-        throw error;
-      }
-
+      if (error) throw error;
+      
       console.log('Login successful');
-    } catch (error) {
-      console.error('Login failed:', error);
-      setAuthState({ 
-        user: null, 
-        loading: false, 
-        error: error instanceof Error ? error.message : 'Login failed' 
-      });
+      console.log('useAuth.ts:92 Fetching user points after sign in');
+    } catch (error: any) {
+      console.error('Login error:', error);
+      setAuthState(prev => ({
+        ...prev,
+        loading: false,
+        error: error.message || 'Login failed'
+      }));
+      throw error;
     }
   };
 
   const register = async (username: string, email: string, password: string) => {
-    setAuthState(prev => ({ ...prev, loading: true, error: null }));
     try {
-      console.log('Attempting registration...');
+      setAuthState(prev => ({ ...prev, loading: true, error: null }));
+      
       const { error } = await supabase.auth.signUp({
         email,
         password,
         options: {
           data: {
-            username,
+            username: username,
           }
         }
       });
 
-      if (error) {
-        console.error('Registration error:', error);
-        throw error;
-      }
-
+      if (error) throw error;
+      
       console.log('Registration successful');
-    } catch (error) {
-      console.error('Registration failed:', error);
-      setAuthState({ 
-        user: null, 
-        loading: false, 
-        error: error instanceof Error ? error.message : 'Registration failed' 
-      });
+    } catch (error: any) {
+      console.error('Registration error:', error);
+      setAuthState(prev => ({
+        ...prev,
+        loading: false,
+        error: error.message || 'Registration failed'
+      }));
+      throw error;
+    }
+  };
+
+  const logout = async () => {
+    try {
+      console.log('Logging out...');
+      await supabase.auth.signOut();
+      setAuthState({ user: null, loading: false, error: null });
+    } catch (error: any) {
+      console.error('Logout error:', error);
+      setAuthState(prev => ({ ...prev, error: error.message }));
     }
   };
 
   const refreshUserPoints = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session?.user) return;
-
-    try {
-      const { data: userData } = await supabase
-        .from('users')
-        .select('total_points')
-        .eq('id', session.user.id)
-        .single();
-
-      if (userData) {
-        setAuthState(prev => prev.user ? {
-          ...prev,
-          user: { ...prev.user, total_points: userData.total_points }
-        } : prev);
-      }
-    } catch (error) {
-      console.warn('Could not refresh user points:', error);
+    if (authState.user) {
+      await refreshUserPointsInternal(authState.user.id);
     }
-  };
-
-  const logout = () => {
-    console.log('Logging out...');
-    setAuthState({ user: null, loading: false, error: null });
-    supabase.auth.signOut();
   };
 
   return {
