@@ -6,6 +6,7 @@ import { getDefaultViewMode } from '../utils/deviceDetection';
 import { MovieCard } from './MovieCard';
 import { StatsCard } from './StatsCard';
 import { Header } from './Header';
+import { AccountSettings } from './AccountSettings';
 
 interface UserProfile {
   id: string;
@@ -20,15 +21,16 @@ interface UserProfileViewProps {
   currentUser: UserType;
   onBack: () => void;
   onLogout: () => void;
-  onAccountClick: () => void;
+  onRefreshCurrentUser: () => Promise<void>;
   onSearchClick: () => void;
 }
 
-export function UserProfileView({ userId, currentUser, onBack, onLogout, onAccountClick, onSearchClick }: UserProfileViewProps) {
+export function UserProfileView({ userId, currentUser, onBack, onLogout, onRefreshCurrentUser, onSearchClick }: UserProfileViewProps) {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [userMovies, setUserMovies] = useState<MovieEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showAccountSettings, setShowAccountSettings] = useState(false);
   
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
     const saved = localStorage.getItem('moviewatch-profile-view-mode');
@@ -101,7 +103,7 @@ export function UserProfileView({ userId, currentUser, onBack, onLogout, onAccou
           user={currentUser}
           onLogout={onLogout}
           onProfileClick={onBack}
-          onAccountClick={onAccountClick}
+          onAccountClick={() => setShowAccountSettings(true)}
           onSearchClick={onSearchClick}
         />
         <div className="pt-16 flex items-center justify-center min-h-[calc(100vh-64px)]">
@@ -125,7 +127,7 @@ export function UserProfileView({ userId, currentUser, onBack, onLogout, onAccou
         user={currentUser}
         onLogout={onLogout}
         onProfileClick={onBack}
-        onAccountClick={onAccountClick}
+        onAccountClick={() => setShowAccountSettings(true)}
         onSearchClick={onSearchClick}
       />
 
@@ -214,6 +216,15 @@ export function UserProfileView({ userId, currentUser, onBack, onLogout, onAccou
           )}
         </div>
       </main>
+
+      {showAccountSettings && (
+        <AccountSettings
+          user={currentUser}
+          onClose={() => setShowAccountSettings(false)}
+          onLogout={onLogout}
+          onRefreshUser={onRefreshCurrentUser}
+        />
+      )}
     </div>
   );
 }

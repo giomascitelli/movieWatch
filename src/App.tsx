@@ -152,7 +152,7 @@ export default function App() {
         currentUser={user}
         onBack={handleBackToDiscover}
         onLogout={logout}
-        onAccountClick={() => setShowAccountSettings(true)}
+        onRefreshCurrentUser={refreshUserPoints}
         onSearchClick={() => setShowUserSearch(true)}
       />
     );
