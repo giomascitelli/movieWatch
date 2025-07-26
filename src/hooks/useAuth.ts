@@ -100,7 +100,7 @@ export function useAuth(): AuthState & {
       console.log('Fetching user data from database for user:', userId);
       const { data: userData, error } = await supabase
         .from('users')
-        .select('username, total_points, avatar_url, created_at')
+        .select('username, total_points, avatar_url, created_at, try_hard_mode')
         .eq('id', userId)
         .single();
 
@@ -119,6 +119,7 @@ export function useAuth(): AuthState & {
             total_points: userData.total_points || 0,
             avatar_url: userData.avatar_url,
             created_at: userData.created_at || prevState.user.created_at,
+            try_hard_mode: userData.try_hard_mode || false,
           } : null
         }));
       }

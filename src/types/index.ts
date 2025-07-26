@@ -5,6 +5,7 @@ export interface User {
   total_points: number;
   avatar_url?: string;
   created_at: string;
+  try_hard_mode?: boolean;
 }
 
 export interface Movie {
@@ -22,11 +23,15 @@ export interface MovieEntry {
   id: string;
   user_id: string;
   movie_id: string;
-  rating_stars: number;
+  rating_stars: number | null;
   watchtime_minutes: number;
   created_at: string;
   updated_at: string;
   movie: Movie;
+  can_rate_after?: string;
+  points_earned?: number;
+  rating_points?: number;
+  watchtime_points?: number;
 }
 
 export interface AuthState {

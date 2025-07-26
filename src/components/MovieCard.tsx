@@ -3,7 +3,7 @@ import { MovieEntry } from '../types';
 
 interface MovieCardProps {
   movie: MovieEntry;
-  onRatingChange: (movieId: string, rating: number) => void;
+  onRatingChange: (movieId: string, rating: number | null) => void;
   onDelete?: (movieId: string) => void;
   editable?: boolean;
   viewMode?: 'grid' | 'list';
@@ -11,9 +11,35 @@ interface MovieCardProps {
 
 export function MovieCard({ movie, onRatingChange, onDelete, editable = true, viewMode = 'grid' }: MovieCardProps) {
   const handleStarClick = (rating: number) => {
-    if (editable) {
-      onRatingChange(movie.id, rating);
+    if (editable && canRate()) {
+      if (rating === movie.rating_stars) {
+        onRatingChange(movie.id, null);
+      } else {
+        onRatingChange(movie.id, rating);
+      }
     }
+  };
+
+  const canRate = () => {
+    if (!movie.can_rate_after) return true;
+    return new Date() >= new Date(movie.can_rate_after);
+  };
+
+  const getTimeUntilCanRate = () => {
+    if (!movie.can_rate_after) return null;
+    const now = new Date();
+    const canRateTime = new Date(movie.can_rate_after);
+    const diff = canRateTime.getTime() - now.getTime();
+    
+    if (diff <= 0) return null;
+    
+    const hours = Math.floor(diff / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    
+    if (hours > 0) {
+      return `${hours}h ${minutes}m`;
+    }
+    return `${minutes}m`;
   };
 
   const formatRuntime = (minutes: number) => {
@@ -70,26 +96,41 @@ export function MovieCard({ movie, onRatingChange, onDelete, editable = true, vi
                   <button
                     key={star}
                     onClick={() => handleStarClick(star)}
-                    disabled={!editable}
+                    disabled={!editable || !canRate()}
                     className={`w-5 h-5 sm:w-6 sm:h-6 transition-all duration-200 ${
-                      editable ? 'hover:scale-110' : 'cursor-default'
+                      editable && canRate() ? 'hover:scale-110' : 'cursor-default'
                     }`}
+                    title={!canRate() ? `Can rate in ${getTimeUntilCanRate()}` : ''}
                   >
                     <Star
                       className={`w-full h-full ${
-                        star <= movie.rating_stars
+                        canRate() && movie.rating_stars != null && star <= movie.rating_stars
                           ? 'text-yellow-400 fill-yellow-400'
                           : 'text-slate-600'
-                      } ${editable ? 'hover:text-yellow-300' : ''}`}
+                      } ${editable && canRate() ? 'hover:text-yellow-300' : ''}`}
                     />
                   </button>
                 ))}
               </div>
               
               <div className="text-xs text-slate-400 hidden sm:block">
-                Rating: {movie.rating_stars}★
+                {!canRate() ? (
+                  <span className="text-orange-400">Can rate in {getTimeUntilCanRate()}</span>
+                ) : movie.rating_stars != null ? (
+                  <>Rating: {movie.rating_stars}★</>
+                ) : (
+                  <span className="text-slate-500">Not rated yet</span>
+                )}
               </div>
             </div>
+
+            {!canRate() && (
+              <div className="bg-orange-900/20 border border-orange-800/50 rounded-lg p-2 mt-2 sm:hidden">
+                <p className="text-orange-400 text-xs text-center">
+                  Try-hard mode: Can rate in {getTimeUntilCanRate()}
+                </p>
+              </div>
+            )}
 
             <p className="text-slate-400 text-xs sm:text-sm line-clamp-2 hidden sm:block">
               {movie.movie.overview}
@@ -146,25 +187,40 @@ export function MovieCard({ movie, onRatingChange, onDelete, editable = true, vi
             <button
               key={star}
               onClick={() => handleStarClick(star)}
-              disabled={!editable}
+              disabled={!editable || !canRate()}
               className={`w-6 h-6 transition-all duration-200 ${
-                editable ? 'hover:scale-110' : 'cursor-default'
+                editable && canRate() ? 'hover:scale-110' : 'cursor-default'
               }`}
+              title={!canRate() ? `Can rate in ${getTimeUntilCanRate()}` : ''}
             >
               <Star
                 className={`w-full h-full ${
-                  star <= movie.rating_stars
+                  canRate() && movie.rating_stars != null && star <= movie.rating_stars
                     ? 'text-yellow-400 fill-yellow-400'
                     : 'text-slate-600'
-                } ${editable ? 'hover:text-yellow-300' : ''}`}
+                } ${editable && canRate() ? 'hover:text-yellow-300' : ''}`}
               />
             </button>
           ))}
         </div>
 
+        {!canRate() && (
+          <div className="bg-orange-900/20 border border-orange-800/50 rounded-lg p-2">
+            <p className="text-orange-400 text-xs text-center">
+              Try-hard mode: Can rate in {getTimeUntilCanRate()}
+            </p>
+          </div>
+        )}
+
         <div className="flex items-center justify-between text-xs text-slate-400">
           <span>Watchtime: {movie.watchtime_minutes}m</span>
-          <span>Rating: {movie.rating_stars}★</span>
+          {!canRate() ? (
+            <span className="text-orange-400">Can rate in {getTimeUntilCanRate()}</span>
+          ) : movie.rating_stars != null ? (
+            <span>Rating: {movie.rating_stars}★</span>
+          ) : (
+            <span className="text-slate-500">Not rated yet</span>
+          )}
         </div>
       </div>
     </div>

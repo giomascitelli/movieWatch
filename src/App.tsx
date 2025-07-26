@@ -96,7 +96,7 @@ export default function App() {
     );
   }
 
-    const handleAddMovie = async (movie: SearchResult, rating: number) => {
+    const handleAddMovie = async (movie: SearchResult, rating: number | null) => {
     try {
       await addMovie(movie, rating);
       await refreshUserPoints();
@@ -111,7 +111,7 @@ export default function App() {
     }
   };
 
-  const handleRatingChange = async (movieId: string, rating: number) => {
+  const handleRatingChange = async (movieId: string, rating: number | null) => {
     try {
       await updateRating(movieId, rating);
       await refreshUserPoints();
@@ -147,14 +147,32 @@ export default function App() {
 
   if (viewingUserId) {
     return (
-      <UserProfileView 
-        userId={viewingUserId}
-        currentUser={user}
-        onBack={handleBackToDiscover}
-        onLogout={logout}
-        onRefreshCurrentUser={refreshUserPoints}
-        onSearchClick={() => setShowUserSearch(true)}
-      />
+      <>
+        <UserProfileView 
+          userId={viewingUserId}
+          currentUser={user}
+          onBack={handleBackToDiscover}
+          onLogout={logout}
+          onRefreshCurrentUser={refreshUserPoints}
+          onSearchClick={() => setShowUserSearch(true)}
+        />
+
+        {showUserSearch && (
+          <UserSearch
+            onClose={() => setShowUserSearch(false)}
+            onUserSelect={handleUserSelect}
+          />
+        )}
+
+        {showAccountSettings && (
+          <AccountSettings
+            user={user}
+            onClose={() => setShowAccountSettings(false)}
+            onLogout={logout}
+            onRefreshUser={refreshUserPoints}
+          />
+        )}
+      </>
     );
   }
 
@@ -269,6 +287,7 @@ export default function App() {
         searchLoading={searchLoading}
         onSearch={searchMovies}
         onAddMovie={handleAddMovie}
+        userTryHardMode={user?.try_hard_mode || false}
       />
 
       {showUserSearch && (

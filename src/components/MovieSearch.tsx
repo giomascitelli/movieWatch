@@ -8,7 +8,8 @@ interface MovieSearchProps {
   searchResults: SearchResult[];
   searchLoading: boolean;
   onSearch: (query: string) => void;
-  onAddMovie: (movie: SearchResult, rating: number) => void;
+  onAddMovie: (movie: SearchResult, rating: number | null) => void;
+  userTryHardMode?: boolean;
 }
 
 export function MovieSearch({ 
@@ -17,11 +18,12 @@ export function MovieSearch({
   searchResults, 
   searchLoading, 
   onSearch, 
-  onAddMovie 
+  onAddMovie,
+  userTryHardMode = false
 }: MovieSearchProps) {
   const [query, setQuery] = useState('');
   const [selectedMovie, setSelectedMovie] = useState<SearchResult | null>(null);
-  const [selectedRating, setSelectedRating] = useState(5);
+  const [selectedRating, setSelectedRating] = useState<number | null>(null);
 
   if (!isOpen) return null;
 
@@ -34,7 +36,7 @@ export function MovieSearch({
     if (selectedMovie) {
       onAddMovie(selectedMovie, selectedRating);
       setSelectedMovie(null);
-      setSelectedRating(5);
+      setSelectedRating(null);
     }
   };
 
@@ -154,25 +156,39 @@ export function MovieSearch({
                   <label className="block text-sm font-medium text-slate-300 mb-2">
                     Your Rating
                   </label>
-                  <div className="flex items-center space-x-1">
-                    {[1, 2, 3, 4, 5].map((star) => (
-                      <button
-                        key={star}
-                        onClick={() => setSelectedRating(star)}
-                        className="w-8 h-8 transition-all duration-200 hover:scale-110"
-                      >
-                        <span
-                          className={`text-2xl ${
-                            star <= selectedRating
-                              ? 'text-yellow-400'
-                              : 'text-slate-600'
-                          }`}
+                  {userTryHardMode ? (
+                    <div className="bg-orange-900/20 border border-orange-800/50 rounded-lg p-3">
+                      <p className="text-orange-400 text-sm text-center">
+                        Try-hard mode: You can rate this movie after watching it for its full runtime
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="flex items-center space-x-1">
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <button
+                          key={star}
+                          onClick={() => {
+                            if (star === selectedRating) {
+                              setSelectedRating(null);
+                            } else {
+                              setSelectedRating(star);
+                            }
+                          }}
+                          className="w-8 h-8 transition-all duration-200 hover:scale-110"
                         >
-                          ★
-                        </span>
-                      </button>
-                    ))}
-                  </div>
+                          <span
+                            className={`text-2xl ${
+                              selectedRating != null && star <= selectedRating
+                                ? 'text-yellow-400'
+                                : 'text-slate-600'
+                            }`}
+                          >
+                            ★
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 <button

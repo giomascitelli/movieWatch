@@ -20,13 +20,15 @@ export function AccountSettings({ user, onClose, onLogout, onRefreshUser }: Acco
   const [username, setUsername] = useState(user.username);
   const [aboutMe, setAboutMe] = useState('');
   const [originalAboutMe, setOriginalAboutMe] = useState('');
+  const [tryHardMode, setTryHardMode] = useState(user.try_hard_mode || false);
+  const [originalTryHardMode, setOriginalTryHardMode] = useState(user.try_hard_mode || false);
 
   useEffect(() => {
     const fetchUserDetails = async () => {
       try {
         const { data, error } = await supabase
           .from('users')
-          .select('about_me')
+          .select('about_me, try_hard_mode')
           .eq('id', user.id)
           .single();
 
@@ -34,6 +36,10 @@ export function AccountSettings({ user, onClose, onLogout, onRefreshUser }: Acco
           const about = data.about_me || '';
           setAboutMe(about);
           setOriginalAboutMe(about);
+          
+          const tryHard = data.try_hard_mode || false;
+          setTryHardMode(tryHard);
+          setOriginalTryHardMode(tryHard);
         }
       } catch (error) {
         console.error('Error fetching user details:', error);
@@ -71,6 +77,16 @@ export function AccountSettings({ user, onClose, onLogout, onRefreshUser }: Acco
 
         if (aboutError) throw aboutError;
         setOriginalAboutMe(aboutMe);
+      }
+
+      if (tryHardMode !== originalTryHardMode) {
+        const { error: tryHardError } = await supabase
+          .from('users')
+          .update({ try_hard_mode: tryHardMode })
+          .eq('id', user.id);
+
+        if (tryHardError) throw tryHardError;
+        setOriginalTryHardMode(tryHardMode);
       }
 
       await onRefreshUser();
@@ -145,7 +161,7 @@ export function AccountSettings({ user, onClose, onLogout, onRefreshUser }: Acco
     { id: 'actions' as Tab, label: 'Account Actions', icon: Shield },
   ];
 
-  const hasUnsavedChanges = username !== user.username || aboutMe !== originalAboutMe;
+  const hasUnsavedChanges = username !== user.username || aboutMe !== originalAboutMe || tryHardMode !== originalTryHardMode;
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -248,6 +264,32 @@ export function AccountSettings({ user, onClose, onLogout, onRefreshUser }: Acco
                       readOnly
                       className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-slate-400 cursor-not-allowed"
                     />
+                  </div>
+
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <label className="block text-sm font-medium text-slate-300 mb-1">
+                          Try-hard Mode
+                        </label>
+                        <p className="text-xs text-slate-500 mb-2">
+                          Movies must be watched for their full runtime before you can rate them and earn points
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setTryHardMode(!tryHardMode)}
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-slate-800 ${
+                          tryHardMode ? 'bg-purple-600' : 'bg-slate-600'
+                        }`}
+                      >
+                        <span
+                          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                            tryHardMode ? 'translate-x-6' : 'translate-x-1'
+                          }`}
+                        />
+                      </button>
+                    </div>
                   </div>
                 </div>
 

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { MovieEntry, SearchResult } from '../types';
 import { tmdbService, TMDBMovie } from '../lib/tmdb';
 import { supabase } from '../lib/supabase';
+import { calculateMoviePoints, calculateTryHardModeUnlockTime, calculateDailyWatchtime } from '../utils/pointsCalculation';
 
 export function useMovies() {
   const [movies, setMovies] = useState<MovieEntry[]>([]);
@@ -45,6 +46,13 @@ export function useMovies() {
 
     loadMovies();
 
+    const checkPointsInterval = setInterval(async () => {
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      if (currentUser) {
+        checkAndAwardWatchtimePoints();
+      }
+    }, 30000);
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       console.log('Auth state changed in useMovies:', event, session?.user?.id);
       
@@ -53,13 +61,16 @@ export function useMovies() {
         setCurrentUserId(null);
         setSearchResults([]);
         setLoading(false);
+        clearInterval(checkPointsInterval);
       } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
         loadMovies();
+        checkAndAwardWatchtimePoints();
       }
     });
 
     return () => {
       subscription.unsubscribe();
+      clearInterval(checkPointsInterval);
     };
   }, [currentUserId]);
 
@@ -89,11 +100,37 @@ export function useMovies() {
     }
   };
 
-  const addMovie = async (movie: SearchResult, rating: number) => {
+    const addMovie = async (movie: SearchResult, rating: number | null) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('User not authenticated');
 
+    const existingEntry = movies.find(entry => 
+      entry.movie.tmdb_id === movie.id && entry.user_id === user.id
+    );
+    if (existingEntry) {
+      console.log('Movie already exists in portfolio, skipping duplicate add');
+      return {
+        watchtimePoints: 0,
+        ratingPoints: 0, 
+        totalEarned: 0,
+        isTryHardMode: false,
+        canRateAfter: null,
+        dailyWatchtime: 0,
+        canEarnMorePoints: true
+      };
+    }
+
+    console.log('Adding movie:', movie.title, 'TMDB ID:', movie.id);
+
     try {
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('try_hard_mode')
+        .eq('id', user.id)
+        .single();
+
+      if (userError) throw userError;
+
       const movieDetails = await tmdbService.getMovieDetails(movie.id);
       
       const { data: existingMovie, error: movieSelectError } = await supabase
@@ -126,13 +163,39 @@ export function useMovies() {
         movieRecord = existingMovie;
       }
 
+      const isTryHardMode = userData?.try_hard_mode || false;
+      
+      const pointsCalc = await calculateMoviePoints(
+        user.id, 
+        movieRecord.runtime, 
+        !!rating,
+        new Date()
+      );
+
+      console.log('Points calculation for', movieRecord.title, ':', {
+        runtime: movieRecord.runtime,
+        hasRating: !!rating,
+        pointsCalc
+      });
+
+      let canRateAfter = null;
+      if (isTryHardMode) {
+        canRateAfter = calculateTryHardModeUnlockTime(movieRecord.runtime);
+      }
+
+      const pointsToAwardNow = isTryHardMode ? 0 : (rating != null ? pointsCalc.totalPoints : pointsCalc.watchtimePoints);
+
       const { data: newEntry, error: entryError } = await supabase
         .from('movie_entries')
         .insert({
           user_id: user.id,
           movie_id: movieRecord.id,
-          rating_stars: rating,
+          rating_stars: isTryHardMode ? null : rating,
           watchtime_minutes: movieRecord.runtime,
+          can_rate_after: canRateAfter?.toISOString(),
+          points_earned: pointsToAwardNow,
+          rating_points: isTryHardMode ? 0 : (rating != null ? pointsCalc.ratingPoints : 0),
+          watchtime_points: isTryHardMode ? 0 : pointsCalc.watchtimePoints,
         })
         .select(`
           *,
@@ -149,12 +212,18 @@ export function useMovies() {
 
       setMovies(prev => [newEntry, ...prev]);
       
-      const watchtimePoints = movieRecord.runtime <= 60 ? 10 :
-                             movieRecord.runtime <= 120 ? 20 :
-                             movieRecord.runtime <= 180 ? 30 : 40;
-      const ratingPoints = 5;
-      const totalPoints = watchtimePoints + ratingPoints;
-      
+      if (pointsToAwardNow > 0) {
+        const { error: pointsUpdateError } = await supabase
+          .rpc('increment_user_points', { 
+            user_id: user.id, 
+            points_to_add: pointsToAwardNow 
+          });
+
+        if (pointsUpdateError) {
+          console.error('Error updating user points:', pointsUpdateError);
+        }
+      }
+
       const { data: updatedUser } = await supabase
         .from('users')
         .select('total_points')
@@ -162,25 +231,71 @@ export function useMovies() {
         .single();
       
       if (updatedUser) {
-        console.log('User earned', totalPoints, 'points! New total:', updatedUser.total_points);
+        if (isTryHardMode) {
+          console.log(`Try-hard mode: Movie added with 0 points. Points will be awarded after ${canRateAfter?.toLocaleString()}`);
+        } else {
+          console.log('User earned', pointsToAwardNow, 'points! New total:', updatedUser.total_points);
+        }
+        if (!pointsCalc.canEarnPoints) {
+          console.log('Daily watchtime limit reached (7 hours)');
+        }
       }
       
-      return { watchtimePoints, ratingPoints, totalEarned: totalPoints };
+      return { 
+        watchtimePoints: isTryHardMode ? 0 : pointsCalc.watchtimePoints, 
+        ratingPoints: isTryHardMode ? 0 : pointsCalc.ratingPoints, 
+        totalEarned: pointsToAwardNow,
+        isTryHardMode,
+        canRateAfter: canRateAfter?.toISOString(),
+        dailyWatchtime: pointsCalc.dailyWatchtime,
+        canEarnMorePoints: pointsCalc.canEarnPoints
+      };
     } catch (error) {
       console.error('Error adding movie:', error);
       throw error;
     }
   };
 
-  const updateRating = async (movieId: string, rating: number) => {
+  const updateRating = async (movieId: string, rating: number | null) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('User not authenticated');
 
     try {
+      const { data: movieEntry, error: entryError } = await supabase
+        .from('movie_entries')
+        .select('*, movies(*)')
+        .eq('id', movieId)
+        .eq('user_id', user.id)
+        .single();
+
+      if (entryError) throw entryError;
+
+      if (movieEntry.can_rate_after && new Date() < new Date(movieEntry.can_rate_after)) {
+        const timeLeft = new Date(movieEntry.can_rate_after).getTime() - new Date().getTime();
+        const minutesLeft = Math.ceil(timeLeft / (1000 * 60));
+        throw new Error(`You can rate this movie in ${minutesLeft} minutes (Try-hard mode active)`);
+      }
+
+      let newRatingPoints = 0;
+      let totalPointsToAdd = 0;
+
+      if (movieEntry.rating_points === 0) {
+        const entryDate = new Date(movieEntry.created_at);
+        const dailyWatchtimeWhenAdded = await calculateDailyWatchtime(user.id, entryDate);
+        
+        if (dailyWatchtimeWhenAdded === movieEntry.watchtime_minutes) {
+          newRatingPoints = 5;
+        }
+        
+        totalPointsToAdd = newRatingPoints;
+      }
+
       const { error } = await supabase
         .from('movie_entries')
         .update({ 
           rating_stars: rating,
+          rating_points: movieEntry.rating_points + newRatingPoints,
+          points_earned: movieEntry.points_earned + totalPointsToAdd,
           updated_at: new Date().toISOString()
         })
         .eq('id', movieId)
@@ -188,28 +303,113 @@ export function useMovies() {
 
       if (error) throw error;
 
+      if (totalPointsToAdd > 0) {
+        const { error: pointsUpdateError } = await supabase
+          .rpc('increment_user_points', { 
+            user_id: user.id, 
+            points_to_add: totalPointsToAdd 
+          });
+
+        if (pointsUpdateError) {
+          console.error('Error updating user points:', pointsUpdateError);
+        }
+      }
+
       setMovies(prev => 
         prev.map(movie => 
           movie.id === movieId 
-            ? { ...movie, rating_stars: rating, updated_at: new Date().toISOString() }
+            ? { 
+                ...movie, 
+                rating_stars: rating, 
+                rating_points: movieEntry.rating_points + newRatingPoints,
+                points_earned: movieEntry.points_earned + totalPointsToAdd,
+                updated_at: new Date().toISOString() 
+              }
             : movie
         )
       );
       
-      const { data: updatedUser } = await supabase
-        .from('users')
-        .select('total_points')
-        .eq('id', user.id)
-        .single();
-      
-      if (updatedUser) {
-        console.log('User earned 5 points for rating! New total:', updatedUser.total_points);
+      if (totalPointsToAdd > 0) {
+        console.log(`Rating awarded! User earned ${totalPointsToAdd} rating points.`);
       }
-      
-      return { ratingPoints: 5, newTotal: updatedUser?.total_points || 0 };
+
     } catch (error) {
       console.error('Error updating rating:', error);
       throw error;
+    }
+  };
+
+  const checkAndAwardWatchtimePoints = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    try {
+      const { data: finishedMovies, error } = await supabase
+        .from('movie_entries')
+        .select(`
+          *,
+          movie:movies(*)
+        `)
+        .eq('user_id', user.id)
+        .not('can_rate_after', 'is', null)
+        .lte('can_rate_after', new Date().toISOString())
+        .eq('watchtime_points', 0);
+
+      if (error) throw error;
+
+      if (finishedMovies && finishedMovies.length > 0) {
+        for (const movieEntry of finishedMovies) {
+          const runtime = movieEntry.movie?.runtime || movieEntry.watchtime_minutes;
+          const baseWatchtimePoints = runtime <= 60 ? 10 :
+                                     runtime <= 120 ? 20 :
+                                     runtime <= 180 ? 30 : 40;
+
+          const entryDate = new Date(movieEntry.created_at);
+          const dailyWatchtimeWhenAdded = await calculateDailyWatchtime(user.id, entryDate);
+          
+          let watchtimePoints = 0;
+          if (dailyWatchtimeWhenAdded === movieEntry.watchtime_minutes) {
+            watchtimePoints = baseWatchtimePoints;
+          } else {
+            const reductionFactor = Math.max(0.1, 1 - ((dailyWatchtimeWhenAdded - runtime) / 420));
+            watchtimePoints = Math.floor(baseWatchtimePoints * reductionFactor);
+          }
+
+          if (watchtimePoints > 0) {
+            await supabase
+              .from('movie_entries')
+              .update({
+                watchtime_points: watchtimePoints,
+                points_earned: movieEntry.points_earned + watchtimePoints,
+                updated_at: new Date().toISOString()
+              })
+              .eq('id', movieEntry.id);
+
+            await supabase
+              .rpc('increment_user_points', {
+                user_id: user.id,
+                points_to_add: watchtimePoints
+              });
+
+            console.log(`Movie "${movieEntry.movie.title}" finished! Awarded ${watchtimePoints} watchtime points.`);
+
+            setMovies(prev => 
+              prev.map(movie => 
+                movie.id === movieEntry.id 
+                  ? {
+                      ...movie,
+                      watchtime_points: watchtimePoints,
+                      points_earned: (movie.points_earned || 0) + watchtimePoints,
+                      updated_at: new Date().toISOString()
+                    }
+                  : movie
+              )
+            );
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error checking watchtime points:', error);
     }
   };
 
@@ -220,10 +420,7 @@ export function useMovies() {
     try {
       const { data: movieEntry } = await supabase
         .from('movie_entries')
-        .select(`
-          *,
-          movie:movies(runtime)
-        `)
+        .select('points_earned')
         .eq('id', movieEntryId)
         .eq('user_id', user.id)
         .single();
@@ -238,14 +435,20 @@ export function useMovies() {
 
       if (error) throw error;
 
+      const pointsToDeduct = movieEntry.points_earned || 0;
+      if (pointsToDeduct > 0) {
+        const { error: pointsUpdateError } = await supabase
+          .rpc('increment_user_points', { 
+            user_id: user.id, 
+            points_to_add: -pointsToDeduct
+          });
+
+        if (pointsUpdateError) {
+          console.error('Error updating user points:', pointsUpdateError);
+        }
+      }
+
       setMovies(prev => prev.filter(movie => movie.id !== movieEntryId));
-      
-      const runtime = movieEntry.movie?.runtime || 120;
-      const watchtimePoints = runtime <= 60 ? 10 :
-                             runtime <= 120 ? 20 :
-                             runtime <= 180 ? 30 : 40;
-      const ratingPoints = movieEntry.rating_stars ? 5 : 0;
-      const totalDeducted = watchtimePoints + ratingPoints;
       
       const { data: updatedUser } = await supabase
         .from('users')
@@ -253,11 +456,11 @@ export function useMovies() {
         .eq('id', user.id)
         .single();
       
-      if (updatedUser) {
-        console.log('User lost', totalDeducted, 'points! New total:', updatedUser.total_points);
+      if (updatedUser && pointsToDeduct > 0) {
+        console.log('User lost', pointsToDeduct, 'points! New total:', updatedUser.total_points);
       }
       
-      return { pointsDeducted: totalDeducted, newTotal: updatedUser?.total_points || 0 };
+      return { pointsDeducted: pointsToDeduct, newTotal: updatedUser?.total_points || 0 };
     } catch (error) {
       console.error('Error deleting movie:', error);
       throw error;
@@ -273,5 +476,6 @@ export function useMovies() {
     addMovie,
     updateRating,
     deleteMovie,
+    checkAndAwardWatchtimePoints,
   };
 }
