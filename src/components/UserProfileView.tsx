@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { ArrowLeft, User, Film } from 'lucide-react';
+import { ArrowLeft, User, Film, Grid3X3, List } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { MovieEntry } from '../types';
+import { MovieEntry, ViewMode } from '../types';
+import { getDefaultViewMode } from '../utils/deviceDetection';
 import { MovieCard } from './MovieCard';
 import { StatsCard } from './StatsCard';
 
@@ -23,6 +24,18 @@ export function UserProfileView({ userId, onBack }: UserProfileViewProps) {
   const [userMovies, setUserMovies] = useState<MovieEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  const [viewMode, setViewMode] = useState<ViewMode>(() => {
+    const saved = localStorage.getItem('moviewatch-profile-view-mode');
+    if (saved && (saved === 'grid' || saved === 'list')) {
+      return saved as ViewMode;
+    }
+    return getDefaultViewMode();
+  });
+
+  useEffect(() => {
+    localStorage.setItem('moviewatch-profile-view-mode', viewMode);
+  }, [viewMode]);
 
   useEffect(() => {
     loadUserProfile();
@@ -133,20 +146,49 @@ export function UserProfileView({ userId, onBack }: UserProfileViewProps) {
             />
           </div>
 
-          <div className="mb-6">
-            <h2 className="text-2xl font-bold text-white mb-4">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-2xl font-bold text-white">
               {userProfile.username}'s Movie Collection
             </h2>
+            
+            <div className="flex items-center bg-slate-800/50 rounded-lg p-1 border border-slate-700/50">
+              <button
+                onClick={() => setViewMode('grid')}
+                className={`flex items-center justify-center px-3 py-2 rounded-md transition-all duration-200 ${
+                  viewMode === 'grid'
+                    ? 'bg-purple-600 text-white shadow-sm'
+                    : 'text-slate-400 hover:text-white hover:bg-slate-700/50'
+                }`}
+                title="Grid view"
+              >
+                <Grid3X3 className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => setViewMode('list')}
+                className={`flex items-center justify-center px-3 py-2 rounded-md transition-all duration-200 ${
+                  viewMode === 'list'
+                    ? 'bg-purple-600 text-white shadow-sm'
+                    : 'text-slate-400 hover:text-white hover:bg-slate-700/50'
+                }`}
+                title="List view"
+              >
+                <List className="w-4 h-4" />
+              </button>
+            </div>
           </div>
 
           {userMovies.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            <div className={viewMode === 'grid' 
+              ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
+              : "space-y-4"
+            }>
               {userMovies.map((movie) => (
                 <MovieCard
                   key={movie.id}
                   movie={movie}
                   onRatingChange={() => {}}
                   editable={false}
+                  viewMode={viewMode}
                 />
               ))}
             </div>

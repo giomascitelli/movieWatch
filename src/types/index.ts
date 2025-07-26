@@ -43,3 +43,5 @@ export interface SearchResult {
   overview: string;
   vote_average: number;
 }
+
+export type ViewMode = 'grid' | 'list';
