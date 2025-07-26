@@ -159,7 +159,7 @@ export function UserSearch({ onClose, onUserSelect }: UserSearchProps) {
                   </div>
                   
                   <div className="flex items-center space-x-6 text-slate-400">
-                    <div className="flex items-center space-x-1">
+                    <div className="hidden sm:flex items-center space-x-1">
                       <Film className="w-4 h-4" />
                       <span className="text-sm">{user.movie_count} movies</span>
                     </div>
