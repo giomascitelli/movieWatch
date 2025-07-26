@@ -1,4 +1,5 @@
 import { Star, LogOut, Users, User } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
 import { User as UserType } from '../types';
 
 interface HeaderProps {
@@ -9,6 +10,22 @@ interface HeaderProps {
 }
 
 export function Header({ user, onLogout, onProfileClick, onSearchClick }: HeaderProps) {
+  const [showDropdown, setShowDropdown] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setShowDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
   return (
     <header className="fixed top-0 left-0 right-0 z-50 bg-slate-900/80 backdrop-blur-md border-b border-slate-700/50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -46,22 +63,34 @@ export function Header({ user, onLogout, onProfileClick, onSearchClick }: Header
                 <span className="text-slate-400 text-xs hidden sm:inline">pts</span>
               </div>
 
-              <div className="flex items-center space-x-1 sm:space-x-2">
-                <div className="w-7 h-7 sm:w-8 sm:h-8 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center">
-                  <span className="text-white text-xs sm:text-sm font-medium">
-                    {user.username.charAt(0).toUpperCase()}
-                  </span>
-                </div>
-                <span className="text-white text-sm hidden md:block">{user.username}</span>
-              </div>
+              <div className="relative" ref={dropdownRef}>
+                <button
+                  onClick={() => setShowDropdown(!showDropdown)}
+                  className="flex items-center space-x-1 sm:space-x-2 hover:bg-slate-800/50 rounded-lg p-1 sm:p-2 transition-colors"
+                >
+                  <div className="w-7 h-7 sm:w-8 sm:h-8 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center">
+                    <span className="text-white text-xs sm:text-sm font-medium">
+                      {user.username.charAt(0).toUpperCase()}
+                    </span>
+                  </div>
+                  <span className="text-white text-sm hidden md:block">{user.username}</span>
+                </button>
 
-              <button
-                onClick={onLogout}
-                className="p-2 text-slate-400 hover:text-white transition-colors"
-                title="Logout"
-              >
-                <LogOut className="w-4 h-4" />
-              </button>
+                {showDropdown && (
+                  <div className="absolute right-0 mt-2 w-48 bg-slate-800 rounded-lg shadow-lg border border-slate-700/50 py-1 z-50">
+                    <button
+                      onClick={() => {
+                        onLogout();
+                        setShowDropdown(false);
+                      }}
+                      className="w-full flex items-center space-x-2 px-4 py-2 text-slate-300 hover:text-white hover:bg-slate-700/50 transition-colors"
+                    >
+                      <LogOut className="w-4 h-4" />
+                      <span>Sign Out</span>
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>
