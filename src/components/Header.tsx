@@ -21,42 +21,44 @@ export function Header({ user, onLogout, onProfileClick, onSearchClick }: Header
           </div>
 
           {user && (
-            <nav className="hidden md:flex items-center space-x-6">
+            <div className="flex items-center space-x-2 sm:space-x-4">
               <button
                 onClick={onSearchClick}
-                className="flex items-center space-x-2 text-slate-300 hover:text-white transition-colors"
+                className="flex items-center space-x-1 text-slate-300 hover:text-white transition-colors p-2 sm:px-3 sm:py-2 rounded-lg hover:bg-slate-800/50"
+                title="Movie Pals"
               >
                 <Users className="w-4 h-4" />
-                <span>Movie Pals</span>
+                <span className="hidden sm:inline text-sm">Movie Pals</span>
               </button>
+              
               <button
                 onClick={onProfileClick}
-                className="flex items-center space-x-2 text-slate-300 hover:text-white transition-colors"
+                className="flex items-center space-x-1 text-slate-300 hover:text-white transition-colors p-2 sm:px-3 sm:py-2 rounded-lg hover:bg-slate-800/50"
+                title="Profile"
               >
                 <User className="w-4 h-4" />
-                <span>Profile</span>
+                <span className="hidden sm:inline text-sm">Profile</span>
               </button>
-            </nav>
-          )}
 
-          {user && (
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-2 bg-slate-800/50 rounded-full px-4 py-2">
-                <Star className="w-4 h-4 text-yellow-400" />
-                <span className="text-white font-semibold">{user.total_points}</span>
-                <span className="text-slate-400 text-sm">pts</span>
+              <div className="flex items-center space-x-1 sm:space-x-2 bg-slate-800/50 rounded-full px-2 sm:px-4 py-1 sm:py-2">
+                <Star className="w-3 h-3 sm:w-4 sm:h-4 text-yellow-400" />
+                <span className="text-white font-semibold text-sm">{user.total_points}</span>
+                <span className="text-slate-400 text-xs hidden sm:inline">pts</span>
               </div>
-              <div className="flex items-center space-x-2">
-                <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center">
-                  <span className="text-white text-sm font-medium">
+
+              <div className="flex items-center space-x-1 sm:space-x-2">
+                <div className="w-7 h-7 sm:w-8 sm:h-8 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center">
+                  <span className="text-white text-xs sm:text-sm font-medium">
                     {user.username.charAt(0).toUpperCase()}
                   </span>
                 </div>
-                <span className="text-white text-sm hidden sm:block">{user.username}</span>
+                <span className="text-white text-sm hidden md:block">{user.username}</span>
               </div>
+
               <button
                 onClick={onLogout}
                 className="p-2 text-slate-400 hover:text-white transition-colors"
+                title="Logout"
               >
                 <LogOut className="w-4 h-4" />
               </button>
