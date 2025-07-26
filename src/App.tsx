@@ -7,19 +7,21 @@ import { UserSearch } from './components/UserSearch';
 import { UserProfileView } from './components/UserProfileView';
 import { EmptyState } from './components/EmptyState';
 import { StatsCard } from './components/StatsCard';
+import { AccountSettings } from './components/AccountSettings';
 import { useAuth } from './hooks/useAuth';
 import { useMovies } from './hooks/useMovies';
 import { SearchResult, ViewMode } from './types';
 import { getDefaultViewMode } from './utils/deviceDetection';
 import { Plus, Grid3X3, List } from 'lucide-react';
 
-function App() {
+export default function App() {
   const { user, loading, error, login, register, logout, refreshUserPoints } = useAuth();
   const { movies, loading: moviesLoading, searchResults, searchLoading, searchMovies, addMovie, updateRating, deleteMovie } = useMovies();
   
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showSearchModal, setShowSearchModal] = useState(false);
   const [showUserSearch, setShowUserSearch] = useState(false);
+  const [showAccountSettings, setShowAccountSettings] = useState(false);
   const [viewingUserId, setViewingUserId] = useState<string | null>(null);
   
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
@@ -146,8 +148,12 @@ function App() {
   if (viewingUserId) {
     return (
       <UserProfileView 
-        userId={viewingUserId} 
-        onBack={handleBackToDiscover} 
+        userId={viewingUserId}
+        currentUser={user}
+        onBack={handleBackToDiscover}
+        onLogout={logout}
+        onAccountClick={() => setShowAccountSettings(true)}
+        onSearchClick={() => setShowUserSearch(true)}
       />
     );
   }
@@ -158,6 +164,7 @@ function App() {
         user={user}
         onLogout={logout}
         onProfileClick={() => {}}
+        onAccountClick={() => setShowAccountSettings(true)}
         onSearchClick={() => setShowUserSearch(true)}
       />
 
@@ -270,8 +277,15 @@ function App() {
           onUserSelect={handleUserSelect}
         />
       )}
+
+      {showAccountSettings && (
+        <AccountSettings
+          user={user}
+          onClose={() => setShowAccountSettings(false)}
+          onLogout={logout}
+          onRefreshUser={refreshUserPoints}
+        />
+      )}
     </div>
   );
 }
-
-export default App;

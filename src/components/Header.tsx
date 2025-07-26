@@ -1,4 +1,4 @@
-import { Star, LogOut, Users, User } from 'lucide-react';
+import { Star, LogOut, Users, User, Settings } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import { User as UserType } from '../types';
 
@@ -7,9 +7,10 @@ interface HeaderProps {
   onLogout: () => void;
   onProfileClick: () => void;
   onSearchClick: () => void;
+  onAccountClick: () => void;
 }
 
-export function Header({ user, onLogout, onProfileClick, onSearchClick }: HeaderProps) {
+export function Header({ user, onLogout, onProfileClick, onSearchClick, onAccountClick }: HeaderProps) {
   const [showDropdown, setShowDropdown] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -47,15 +48,6 @@ export function Header({ user, onLogout, onProfileClick, onSearchClick }: Header
                 <Users className="w-4 h-4" />
                 <span className="hidden sm:inline text-sm">Movie Pals</span>
               </button>
-              
-              <button
-                onClick={onProfileClick}
-                className="flex items-center space-x-1 text-slate-300 hover:text-white transition-colors p-2 sm:px-3 sm:py-2 rounded-lg hover:bg-slate-800/50"
-                title="Profile"
-              >
-                <User className="w-4 h-4" />
-                <span className="hidden sm:inline text-sm">Profile</span>
-              </button>
 
               <div className="flex items-center space-x-1 sm:space-x-2 bg-slate-800/50 rounded-full px-2 sm:px-4 py-1 sm:py-2">
                 <Star className="w-3 h-3 sm:w-4 sm:h-4 text-yellow-400" />
@@ -78,6 +70,27 @@ export function Header({ user, onLogout, onProfileClick, onSearchClick }: Header
 
                 {showDropdown && (
                   <div className="absolute right-0 mt-2 w-48 bg-slate-800 rounded-lg shadow-lg border border-slate-700/50 py-1 z-50">
+                    <button
+                      onClick={() => {
+                        onProfileClick();
+                        setShowDropdown(false);
+                      }}
+                      className="w-full flex items-center space-x-2 px-4 py-2 text-slate-300 hover:text-white hover:bg-slate-700/50 transition-colors"
+                    >
+                      <User className="w-4 h-4" />
+                      <span>My Profile</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        onAccountClick();
+                        setShowDropdown(false);
+                      }}
+                      className="w-full flex items-center space-x-2 px-4 py-2 text-slate-300 hover:text-white hover:bg-slate-700/50 transition-colors"
+                    >
+                      <Settings className="w-4 h-4" />
+                      <span>Account</span>
+                    </button>
+                    <div className="border-t border-slate-700/50 my-1"></div>
                     <button
                       onClick={() => {
                         onLogout();

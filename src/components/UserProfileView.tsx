@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
-import { ArrowLeft, User, Film, Grid3X3, List } from 'lucide-react';
+import { Film, Grid3X3, List } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { MovieEntry, ViewMode } from '../types';
+import { MovieEntry, ViewMode, User as UserType } from '../types';
 import { getDefaultViewMode } from '../utils/deviceDetection';
 import { MovieCard } from './MovieCard';
 import { StatsCard } from './StatsCard';
+import { Header } from './Header';
 
 interface UserProfile {
   id: string;
@@ -16,10 +17,14 @@ interface UserProfile {
 
 interface UserProfileViewProps {
   userId: string;
+  currentUser: UserType;
   onBack: () => void;
+  onLogout: () => void;
+  onAccountClick: () => void;
+  onSearchClick: () => void;
 }
 
-export function UserProfileView({ userId, onBack }: UserProfileViewProps) {
+export function UserProfileView({ userId, currentUser, onBack, onLogout, onAccountClick, onSearchClick }: UserProfileViewProps) {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [userMovies, setUserMovies] = useState<MovieEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -91,15 +96,24 @@ export function UserProfileView({ userId, onBack }: UserProfileViewProps) {
 
   if (error || !userProfile) {
     return (
-      <div className="min-h-screen bg-slate-900 flex items-center justify-center">
-        <div className="text-center">
-          <div className="text-red-500 text-xl mb-4">{error || 'User not found'}</div>
-          <button
-            onClick={onBack}
-            className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
-          >
-            Go Back
-          </button>
+      <div className="min-h-screen bg-slate-900">
+        <Header
+          user={currentUser}
+          onLogout={onLogout}
+          onProfileClick={onBack}
+          onAccountClick={onAccountClick}
+          onSearchClick={onSearchClick}
+        />
+        <div className="pt-16 flex items-center justify-center min-h-[calc(100vh-64px)]">
+          <div className="text-center">
+            <div className="text-red-500 text-xl mb-4">{error || 'User not found'}</div>
+            <button
+              onClick={onBack}
+              className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+            >
+              Go Back
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -107,38 +121,33 @@ export function UserProfileView({ userId, onBack }: UserProfileViewProps) {
 
   return (
     <div className="min-h-screen bg-slate-900">
-      <div className="bg-slate-800 border-b border-slate-700">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between py-4">
-            <button
-              onClick={onBack}
-              className="flex items-center space-x-2 text-slate-400 hover:text-white transition-colors"
-            >
-              <ArrowLeft className="w-5 h-5" />
-              <span>Back to Discovery</span>
-            </button>
-            
-            <div className="flex items-center space-x-4">
-              <div className="w-12 h-12 bg-purple-600 rounded-full flex items-center justify-center">
-                <User className="w-6 h-6 text-white" />
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold text-white">{userProfile.username}</h1>
-                <p className="text-slate-400">
-                  Member since {new Date(userProfile.created_at).getFullYear()}
-                </p>
-              </div>
-            </div>
+      <Header
+        user={currentUser}
+        onLogout={onLogout}
+        onProfileClick={onBack}
+        onAccountClick={onAccountClick}
+        onSearchClick={onSearchClick}
+      />
 
-            <div className="text-slate-400 text-sm">
-              View-only mode
+      <main className="pt-16">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          {/* User Info Section */}
+          <div className="text-center mb-8">
+            <div className="w-20 h-20 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center mx-auto mb-4">
+              <span className="text-white text-2xl font-bold">
+                {userProfile.username.charAt(0).toUpperCase()}
+              </span>
             </div>
+            <h1 className="text-3xl font-bold text-white mb-2">{userProfile.username}</h1>
+            <p className="text-slate-400">
+              Member since {new Date(userProfile.created_at).toLocaleDateString('en-US', { 
+                year: 'numeric', 
+                month: 'long' 
+              })}
+            </p>
           </div>
-        </div>
-      </div>
 
-      <main className="py-8">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          {/* Stats Card */}
           <div className="mb-8">
             <StatsCard 
               movies={userMovies} 
