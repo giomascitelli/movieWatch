@@ -192,6 +192,10 @@ export function useAuth(): AuthState & {
       }
       
       console.log('Registration successful');
+      
+      setAuthState(prev => ({ ...prev, loading: false, error: null }));
+      
+      await supabase.auth.signOut();
     } catch (error: any) {
       console.error('Registration error:', error);
       

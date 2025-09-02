@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Mail, Lock, User } from 'lucide-react';
+import { X, Mail, Lock, User, CheckCircle } from 'lucide-react';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -15,6 +15,7 @@ export function AuthModal({ isOpen, onClose, onLogin, onRegister, onResetPasswor
   const [isLogin, setIsLogin] = useState(true);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [resetEmailSent, setResetEmailSent] = useState(false);
+  const [registrationSuccess, setRegistrationSuccess] = useState(false);
   const [formData, setFormData] = useState({
     username: '',
     email: '',
@@ -50,7 +51,12 @@ export function AuthModal({ isOpen, onClose, onLogin, onRegister, onResetPasswor
     if (isLogin) {
       await onLogin(formData.email, formData.password);
     } else {
-      await onRegister(formData.username, formData.email, formData.password);
+      try {
+        await onRegister(formData.username, formData.email, formData.password);
+        setRegistrationSuccess(true);
+      } catch (error) {
+        
+      }
     }
   };
 
@@ -92,6 +98,26 @@ export function AuthModal({ isOpen, onClose, onLogin, onRegister, onResetPasswor
                 className="text-purple-400 hover:text-purple-300 text-sm transition-colors"
               >
                 Back to Sign In
+              </button>
+            </div>
+          ) : registrationSuccess ? (
+            <div className="p-6 text-center">
+              <div className="w-16 h-16 bg-green-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                <CheckCircle className="w-8 h-8 text-green-400" />
+              </div>
+              <h3 className="text-lg font-semibold text-white mb-2">Account Created!</h3>
+              <p className="text-slate-400 mb-4">
+                Your account has been successfully created. You can now sign in with your credentials.
+              </p>
+              <button
+                onClick={() => {
+                  setRegistrationSuccess(false);
+                  setIsLogin(true);
+                  setFormData({ username: '', email: '', password: '', confirmPassword: '' });
+                }}
+                className="w-full py-3 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-medium rounded-lg transition-all duration-200"
+              >
+                Continue to Sign In
               </button>
             </div>
           ) : (
