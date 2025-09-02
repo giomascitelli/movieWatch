@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { User, Settings, Shield, X, Trash2, LogOut } from 'lucide-react';
+import { User, Settings, Shield, X, Trash2, LogOut, Lock } from 'lucide-react';
 import { User as UserType } from '../types';
 import { supabase } from '../lib/supabase';
 
@@ -8,11 +8,12 @@ interface AccountSettingsProps {
   onClose: () => void;
   onLogout: () => void;
   onRefreshUser: () => Promise<void>;
+  onChangePassword?: (currentPassword: string, newPassword: string) => Promise<void>;
 }
 
 type Tab = 'general' | 'customization' | 'actions';
 
-export function AccountSettings({ user, onClose, onLogout, onRefreshUser }: AccountSettingsProps) {
+export function AccountSettings({ user, onClose, onLogout, onRefreshUser, onChangePassword }: AccountSettingsProps) {
   const [activeTab, setActiveTab] = useState<Tab>('general');
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -22,6 +23,13 @@ export function AccountSettings({ user, onClose, onLogout, onRefreshUser }: Acco
   const [originalAboutMe, setOriginalAboutMe] = useState('');
   const [tryHardMode, setTryHardMode] = useState(user.try_hard_mode || false);
   const [originalTryHardMode, setOriginalTryHardMode] = useState(user.try_hard_mode || false);
+
+  const [showChangePassword, setShowChangePassword] = useState(false);
+  const [passwordData, setPasswordData] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: '',
+  });
 
   useEffect(() => {
     const fetchUserDetails = async () => {
@@ -125,6 +133,35 @@ export function AccountSettings({ user, onClose, onLogout, onRefreshUser }: Acco
     } catch (error) {
       console.error('Error deleting account:', error);
       alert('Failed to delete account. Please try again.');
+      setLoading(false);
+    }
+  };
+
+  const handleChangePassword = async () => {
+    if (!onChangePassword) {
+      alert('Password change functionality is not available');
+      return;
+    }
+
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      alert('New passwords do not match');
+      return;
+    }
+
+    if (passwordData.newPassword.length < 6) {
+      alert('New password must be at least 6 characters long');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await onChangePassword(passwordData.currentPassword, passwordData.newPassword);
+      setShowChangePassword(false);
+      setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+      alert('Password changed successfully!');
+    } catch (error: any) {
+      alert(error.message || 'Failed to change password');
+    } finally {
       setLoading(false);
     }
   };
@@ -329,6 +366,90 @@ export function AccountSettings({ user, onClose, onLogout, onRefreshUser }: Acco
                 </div>
 
                 <div className="space-y-4">
+                  <div className="bg-slate-700/30 rounded-lg p-4 border border-slate-600">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <h4 className="text-white font-medium mb-1">Change Password</h4>
+                        <p className="text-sm text-slate-400">
+                          Update your account password. You'll need to enter your current password.
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => setShowChangePassword(!showChangePassword)}
+                        disabled={loading}
+                        className="flex items-center justify-center px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed ml-4"
+                        title="Change Password"
+                      >
+                        <Lock className="w-4 h-4" />
+                      </button>
+                    </div>
+                    
+                    {showChangePassword && (
+                      <div className="mt-4 pt-4 border-t border-slate-600 space-y-3">
+                        <div>
+                          <label className="block text-sm font-medium text-slate-300 mb-1">
+                            Current Password
+                          </label>
+                          <input
+                            type="password"
+                            value={passwordData.currentPassword}
+                            onChange={(e) => setPasswordData({ ...passwordData, currentPassword: e.target.value })}
+                            className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            placeholder="Enter current password"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-slate-300 mb-1">
+                            New Password
+                          </label>
+                          <input
+                            type="password"
+                            value={passwordData.newPassword}
+                            onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
+                            className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            placeholder="Enter new password"
+                          />
+                          {passwordData.newPassword && passwordData.newPassword.length < 6 && (
+                            <p className="text-red-400 text-xs mt-1">Password must be at least 6 characters long</p>
+                          )}
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-slate-300 mb-1">
+                            Confirm New Password
+                          </label>
+                          <input
+                            type="password"
+                            value={passwordData.confirmPassword}
+                            onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
+                            className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            placeholder="Confirm new password"
+                          />
+                          {passwordData.confirmPassword && passwordData.newPassword !== passwordData.confirmPassword && (
+                            <p className="text-red-400 text-xs mt-1">Passwords do not match</p>
+                          )}
+                        </div>
+                        <div className="flex space-x-2 pt-2">
+                          <button
+                            onClick={handleChangePassword}
+                            disabled={loading || !passwordData.currentPassword || passwordData.newPassword.length < 6 || passwordData.newPassword !== passwordData.confirmPassword}
+                            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {loading ? 'Changing...' : 'Change Password'}
+                          </button>
+                          <button
+                            onClick={() => {
+                              setShowChangePassword(false);
+                              setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+                            }}
+                            className="px-4 py-2 bg-slate-600 hover:bg-slate-700 text-white font-medium rounded-lg transition-colors"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
                   <div className="bg-slate-700/30 rounded-lg p-4 border border-slate-600">
                     <div className="flex items-start justify-between">
                       <div>

@@ -8,6 +8,7 @@ import { UserProfileView } from './components/UserProfileView';
 import { EmptyState } from './components/EmptyState';
 import { StatsCard } from './components/StatsCard';
 import { AccountSettings } from './components/AccountSettings';
+import { ResetPassword } from './components/ResetPassword';
 import { useAuth } from './hooks/useAuth';
 import { useMovies } from './hooks/useMovies';
 import { SearchResult, ViewMode } from './types';
@@ -15,7 +16,7 @@ import { getDefaultViewMode } from './utils/deviceDetection';
 import { Plus, Grid3X3, List } from 'lucide-react';
 
 export default function App() {
-  const { user, loading, error, login, register, logout, refreshUserPoints } = useAuth();
+  const { user, loading, error, login, register, logout, refreshUserPoints, resetPassword, changePassword } = useAuth();
   const { movies, loading: moviesLoading, searchResults, searchLoading, searchMovies, addMovie, updateRating, deleteMovie } = useMovies();
   
   const [showAuthModal, setShowAuthModal] = useState(false);
@@ -23,6 +24,7 @@ export default function App() {
   const [showUserSearch, setShowUserSearch] = useState(false);
   const [showAccountSettings, setShowAccountSettings] = useState(false);
   const [viewingUserId, setViewingUserId] = useState<string | null>(null);
+  const [isResetPasswordPage, setIsResetPasswordPage] = useState(false);
   
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
     const saved = localStorage.getItem('moviewatch-view-mode');
@@ -31,6 +33,32 @@ export default function App() {
     }
     return getDefaultViewMode();
   });
+
+  useEffect(() => {
+    const checkForResetPassword = () => {
+      const path = window.location.pathname;
+      const hash = window.location.hash;
+      
+      if (path === '/reset-password' || hash.includes('access_token')) {
+        setIsResetPasswordPage(true);
+      }
+    };
+
+    checkForResetPassword();
+    
+    const handlePopState = () => {
+      checkForResetPassword();
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  const handleResetPasswordComplete = () => {
+    setIsResetPasswordPage(false);
+    window.history.pushState({}, '', '/');
+    logout();
+  };
 
   useEffect(() => {
     localStorage.setItem('moviewatch-view-mode', viewMode);
@@ -49,6 +77,10 @@ export default function App() {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
+
+  if (isResetPasswordPage) {
+    return <ResetPassword onComplete={handleResetPasswordComplete} />;
+  }
 
   if (loading) {
     return (
@@ -89,6 +121,7 @@ export default function App() {
           onClose={() => setShowAuthModal(false)}
           onLogin={login}
           onRegister={register}
+          onResetPassword={resetPassword}
           loading={loading}
           error={error}
         />
@@ -170,6 +203,7 @@ export default function App() {
             onClose={() => setShowAccountSettings(false)}
             onLogout={logout}
             onRefreshUser={refreshUserPoints}
+            onChangePassword={changePassword}
           />
         )}
       </>
@@ -303,6 +337,7 @@ export default function App() {
           onClose={() => setShowAccountSettings(false)}
           onLogout={logout}
           onRefreshUser={refreshUserPoints}
+          onChangePassword={changePassword}
         />
       )}
     </div>

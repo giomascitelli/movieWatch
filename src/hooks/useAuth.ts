@@ -7,6 +7,8 @@ export function useAuth(): AuthState & {
   register: (username: string, email: string, password: string) => Promise<void>;
   logout: () => void;
   refreshUserPoints: () => Promise<void>;
+  resetPassword: (email: string) => Promise<void>;
+  changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
 } {
   const [authState, setAuthState] = useState<AuthState>({
     user: null,
@@ -226,11 +228,50 @@ export function useAuth(): AuthState & {
     }
   };
 
+  const resetPassword = async (email: string) => {
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+
+      if (error) throw error;
+    } catch (error: any) {
+      throw new Error(error.message || 'Failed to send reset email');
+    }
+  };
+
+  const changePassword = async (currentPassword: string, newPassword: string) => {
+    try {
+      if (!authState.user) {
+        throw new Error('You must be logged in to change your password');
+      }
+
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: authState.user.email,
+        password: currentPassword,
+      });
+
+      if (signInError) {
+        throw new Error('Current password is incorrect');
+      }
+
+      const { error } = await supabase.auth.updateUser({
+        password: newPassword
+      });
+
+      if (error) throw error;
+    } catch (error: any) {
+      throw new Error(error.message || 'Failed to change password');
+    }
+  };
+
   return {
     ...authState,
     login,
     register,
     logout,
     refreshUserPoints,
+    resetPassword,
+    changePassword,
   };
 }
