@@ -8,8 +8,9 @@ interface StatsCardProps {
 
 export function StatsCard({ movies, totalPoints }: StatsCardProps) {
   const totalWatchtime = movies.reduce((sum, movie) => sum + movie.watchtime_minutes, 0);
-  const averageRating = movies.length > 0 
-    ? movies.reduce((sum, movie) => sum + movie.rating_stars, 0) / movies.length
+  const ratedMovies = movies.filter(movie => movie.rating_stars !== null);
+  const averageRating = ratedMovies.length > 0 
+    ? ratedMovies.reduce((sum, movie) => sum + (movie.rating_stars || 0), 0) / ratedMovies.length
     : 0;
 
   const formatWatchtime = (minutes: number) => {
