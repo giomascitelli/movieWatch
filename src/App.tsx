@@ -17,7 +17,7 @@ import { Plus, Grid3X3, List } from 'lucide-react';
 
 export default function App() {
   const { user, loading, error, login, register, logout, refreshUserPoints, resetPassword, changePassword } = useAuth();
-  const { movies, loading: moviesLoading, searchResults, searchLoading, searchMovies, addMovie, updateRating, deleteMovie } = useMovies();
+  const { movies, loading: moviesLoading, searchResults, searchLoading, searchMovies, addMovie, updateRating, deleteMovie, checkCanAddMovie } = useMovies();
   
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showSearchModal, setShowSearchModal] = useState(false);
@@ -178,6 +178,15 @@ export default function App() {
     setViewingUserId(null);
   };
 
+  const handleAddMovieClick = async () => {
+    const canAddResult = await checkCanAddMovie();
+    if (canAddResult.canAdd) {
+      setShowSearchModal(true);
+    } else {
+      alert(canAddResult.error || 'Cannot add movie at this time');
+    }
+  };
+
   if (viewingUserId) {
     return (
       <>
@@ -254,7 +263,7 @@ export default function App() {
               </div>
               
               <button
-                onClick={() => setShowSearchModal(true)}
+                onClick={handleAddMovieClick}
                 className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-medium rounded-lg transition-all duration-200 hover:scale-105"
                 title="Add Movie"
               >
@@ -309,7 +318,7 @@ export default function App() {
               ))}
             </div>
           ) : (
-            <EmptyState onAddMovie={() => setShowSearchModal(true)} />
+            <EmptyState onAddMovie={handleAddMovieClick} />
           )}
         </div>
       </main>

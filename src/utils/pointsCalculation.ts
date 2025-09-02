@@ -41,48 +41,67 @@ export async function calculateMoviePoints(
   userId: string, 
   runtime: number, 
   isRated: boolean = true,
-  date: Date = new Date()
+  date: Date = new Date(),
+  isTryHardMode: boolean = false
 ): Promise<PointsCalculation> {
-  const dailyWatchtime = await calculateDailyWatchtime(userId, date);
-  const newDailyWatchtime = dailyWatchtime + runtime;
   
-  const isFirstMovieOfDay = dailyWatchtime === 0;
-  
-  const canEarnPoints = newDailyWatchtime <= 420;
-  
-  let watchtimePoints = 0;
-  let ratingPoints = 0;
-  
-  if (canEarnPoints) {
-    const baseWatchtimePoints = runtime <= 60 ? 10 :
-                               runtime <= 120 ? 20 :
-                               runtime <= 180 ? 30 : 40;
+  if (isTryHardMode) {
+    const dailyWatchtime = await calculateDailyWatchtime(userId, date);
+    const newDailyWatchtime = dailyWatchtime + runtime;
     
-    if (isFirstMovieOfDay) {
-      watchtimePoints = baseWatchtimePoints;
-      ratingPoints = isRated ? 5 : 0;
-    } else {
-      const reductionFactor = Math.max(0.1, 1 - (dailyWatchtime / 420));
-      watchtimePoints = Math.floor(baseWatchtimePoints * reductionFactor);
-      ratingPoints = 0;
+    const isFirstMovieOfDay = dailyWatchtime === 0;
+    
+    const canEarnPoints = newDailyWatchtime <= 420;
+    
+    let watchtimePoints = 0;
+    let ratingPoints = 0;
+    
+    if (canEarnPoints) {
+      const baseWatchtimePoints = runtime <= 60 ? 10 :
+                                 runtime <= 120 ? 20 :
+                                 runtime <= 180 ? 30 : 40;
+      
+      if (isFirstMovieOfDay) {
+        watchtimePoints = baseWatchtimePoints;
+        ratingPoints = isRated ? 5 : 0;
+      } else {
+        const reductionFactor = Math.max(0.1, 1 - (dailyWatchtime / 420));
+        watchtimePoints = Math.floor(baseWatchtimePoints * reductionFactor);
+        ratingPoints = 0;
+      }
+      
+      if (newDailyWatchtime > 420) {
+        const excessMinutes = newDailyWatchtime - 420;
+        const validPortionRatio = (runtime - excessMinutes) / runtime;
+        watchtimePoints = Math.floor(watchtimePoints * validPortionRatio);
+        ratingPoints = Math.floor(ratingPoints * validPortionRatio);
+      }
     }
     
-    if (newDailyWatchtime > 420) {
-      const excessMinutes = newDailyWatchtime - 420;
-      const validPortionRatio = (runtime - excessMinutes) / runtime;
-      watchtimePoints = Math.floor(watchtimePoints * validPortionRatio);
-      ratingPoints = Math.floor(ratingPoints * validPortionRatio);
-    }
+    return {
+      watchtimePoints,
+      ratingPoints,
+      totalPoints: watchtimePoints + ratingPoints,
+      dailyWatchtime: newDailyWatchtime,
+      isFirstMovieOfDay,
+      canEarnPoints
+    };
+  } else {
+    const watchtimePoints = runtime <= 60 ? 10 :
+                           runtime <= 120 ? 20 :
+                           runtime <= 180 ? 30 : 40;
+    
+    const ratingPoints = isRated ? 5 : 0;
+    
+    return {
+      watchtimePoints,
+      ratingPoints,
+      totalPoints: watchtimePoints + ratingPoints,
+      dailyWatchtime: 0,
+      isFirstMovieOfDay: true,
+      canEarnPoints: true
+    };
   }
-  
-  return {
-    watchtimePoints,
-    ratingPoints,
-    totalPoints: watchtimePoints + ratingPoints,
-    dailyWatchtime: newDailyWatchtime,
-    isFirstMovieOfDay,
-    canEarnPoints
-  };
 }
 
 export function calculateTryHardModeUnlockTime(runtime: number): Date {

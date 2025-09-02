@@ -74,6 +74,51 @@ export function useMovies() {
     };
   }, [currentUserId]);
 
+  const checkCanAddMovie = async (): Promise<{ canAdd: boolean; error?: string; minutesLeft?: number }> => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { canAdd: false, error: 'User not authenticated' };
+
+    try {
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('try_hard_mode')
+        .eq('id', user.id)
+        .single();
+
+      if (userError) return { canAdd: false, error: 'Failed to check user settings' };
+
+      const isTryHardMode = userData?.try_hard_mode || false;
+      
+      if (!isTryHardMode) return { canAdd: true };
+
+      const { data: recentMovies, error: recentError } = await supabase
+        .from('movie_entries')
+        .select('can_rate_after, created_at')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      if (recentError) return { canAdd: false, error: 'Failed to check recent movies' };
+
+      if (recentMovies && recentMovies.length > 0) {
+        const mostRecentMovie = recentMovies[0];
+        if (mostRecentMovie.can_rate_after && new Date() < new Date(mostRecentMovie.can_rate_after)) {
+          const timeLeft = new Date(mostRecentMovie.can_rate_after).getTime() - new Date().getTime();
+          const minutesLeft = Math.ceil(timeLeft / (1000 * 60));
+          return { 
+            canAdd: false, 
+            error: `You can only add one movie at a time in Try-Hard mode. Wait ${minutesLeft} more minutes to finish watching your current movie, or delete it from your portfolio if you added it by mistake.`,
+            minutesLeft 
+          };
+        }
+      }
+
+      return { canAdd: true };
+    } catch (error) {
+      return { canAdd: false, error: 'Failed to check if you can add movies' };
+    }
+  };
+
   const searchMovies = async (query: string) => {
     if (!query.trim()) {
       setSearchResults([]);
@@ -131,6 +176,8 @@ export function useMovies() {
 
       if (userError) throw userError;
 
+      const isTryHardMode = userData?.try_hard_mode || false;
+
       const movieDetails = await tmdbService.getMovieDetails(movie.id);
       
       const { data: existingMovie, error: movieSelectError } = await supabase
@@ -162,14 +209,13 @@ export function useMovies() {
       } else {
         movieRecord = existingMovie;
       }
-
-      const isTryHardMode = userData?.try_hard_mode || false;
       
       const pointsCalc = await calculateMoviePoints(
         user.id, 
         movieRecord.runtime, 
         !!rating,
-        new Date()
+        new Date(),
+        isTryHardMode
       );
 
       console.log('Points calculation for', movieRecord.title, ':', {
@@ -276,14 +322,26 @@ export function useMovies() {
         throw new Error(`You can rate this movie in ${minutesLeft} minutes (Try-hard mode active)`);
       }
 
+      const { data: userData } = await supabase
+        .from('users')
+        .select('try_hard_mode')
+        .eq('id', user.id)
+        .single();
+
+      const isTryHardMode = userData?.try_hard_mode || false;
+
       let newRatingPoints = 0;
       let totalPointsToAdd = 0;
 
       if (movieEntry.rating_points === 0) {
-        const entryDate = new Date(movieEntry.created_at);
-        const dailyWatchtimeWhenAdded = await calculateDailyWatchtime(user.id, entryDate);
-        
-        if (dailyWatchtimeWhenAdded === movieEntry.watchtime_minutes) {
+        if (isTryHardMode) {
+          const entryDate = new Date(movieEntry.created_at);
+          const dailyWatchtimeWhenAdded = await calculateDailyWatchtime(user.id, entryDate);
+          
+          if (dailyWatchtimeWhenAdded === movieEntry.watchtime_minutes) {
+            newRatingPoints = 5;
+          }
+        } else {
           newRatingPoints = 5;
         }
         
@@ -477,5 +535,6 @@ export function useMovies() {
     updateRating,
     deleteMovie,
     checkAndAwardWatchtimePoints,
+    checkCanAddMovie,
   };
 }
