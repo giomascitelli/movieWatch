@@ -16,12 +16,24 @@ export function AuthModal({ isOpen, onClose, onLogin, onRegister, loading, error
     username: '',
     email: '',
     password: '',
+    confirmPassword: '',
   });
 
   if (!isOpen) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!isLogin) {
+      if (formData.password !== formData.confirmPassword) {
+        return;
+      }
+      
+      if (formData.password.length < 6) {
+        return;
+      }
+    }
+    
     if (isLogin) {
       await onLogin(formData.email, formData.password);
     } else {
@@ -97,7 +109,32 @@ export function AuthModal({ isOpen, onClose, onLogin, onRegister, loading, error
                   required
                 />
               </div>
+              {!isLogin && formData.password && formData.password.length < 6 && (
+                <p className="text-red-400 text-xs">Password must be at least 6 characters long</p>
+              )}
             </div>
+
+            {!isLogin && (
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-slate-300">
+                  Confirm Password
+                </label>
+                <div className="relative">
+                  <Lock className="w-5 h-5 text-slate-400 absolute left-3 top-3" />
+                  <input
+                    type="password"
+                    value={formData.confirmPassword}
+                    onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+                    className="w-full pl-10 pr-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    placeholder="Confirm your password"
+                    required
+                  />
+                </div>
+                {formData.confirmPassword && formData.password !== formData.confirmPassword && (
+                  <p className="text-red-400 text-xs">Passwords do not match</p>
+                )}
+              </div>
+            )}
 
             {error && (
               <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3">
@@ -107,7 +144,11 @@ export function AuthModal({ isOpen, onClose, onLogin, onRegister, loading, error
 
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || (!isLogin && (
+                formData.password.length < 6 || 
+                formData.password !== formData.confirmPassword ||
+                !formData.username.trim()
+              ))}
               className="w-full py-3 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-medium rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? 'Please wait...' : isLogin ? 'Sign In' : 'Create Account'}

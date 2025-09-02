@@ -156,6 +156,17 @@ export function useAuth(): AuthState & {
     try {
       setAuthState(prev => ({ ...prev, loading: true, error: null }));
       
+      const { data: existingUsers, error: checkError } = await supabase
+        .from('users')
+        .select('username')
+        .eq('username', username);
+      
+      if (checkError) {
+        console.error('Error checking username:', checkError);
+      } else if (existingUsers && existingUsers.length > 0) {
+        throw new Error('Username already taken. Please choose a different username.');
+      }
+      
       const { error } = await supabase.auth.signUp({
         email,
         password,
@@ -166,15 +177,33 @@ export function useAuth(): AuthState & {
         }
       });
 
-      if (error) throw error;
+      if (error) {
+        if (error.message.includes('already registered')) {
+          throw new Error('This email is already registered. Please try logging in instead.');
+        } else if (error.message.includes('Invalid email')) {
+          throw new Error('Please enter a valid email address.');
+        } else if (error.message.includes('Password')) {
+          throw new Error('Password must be at least 6 characters long.');
+        } else {
+          throw new Error(error.message);
+        }
+      }
       
       console.log('Registration successful');
     } catch (error: any) {
       console.error('Registration error:', error);
+      
+      let errorMessage = error.message;
+      if (error.message.includes('Database error saving new user') || 
+          error.message.includes('duplicate key') ||
+          error.message.includes('username') && error.message.includes('already exists')) {
+        errorMessage = 'Username already taken. Please choose a different username.';
+      }
+      
       setAuthState(prev => ({
         ...prev,
         loading: false,
-        error: error.message || 'Registration failed'
+        error: errorMessage || 'Registration failed. Please try again.'
       }));
       throw error;
     }
