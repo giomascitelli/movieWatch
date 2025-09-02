@@ -116,14 +116,11 @@ export function AccountSettings({ user, onClose, onLogout, onRefreshUser }: Acco
 
     setLoading(true);
     try {
-      const { error } = await supabase
-        .from('users')
-        .delete()
-        .eq('id', user.id);
+      const { error } = await supabase.rpc('delete_user_completely');
 
       if (error) throw error;
 
-      await supabase.auth.signOut();
+      alert('Account deleted successfully!');
       onLogout();
     } catch (error) {
       console.error('Error deleting account:', error);
