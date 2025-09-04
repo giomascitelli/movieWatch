@@ -2,6 +2,16 @@
 
 A social movie tracking application built with React, TypeScript, and Supabase.
 
+<img width="1915" height="907" alt="image" src="https://github.com/user-attachments/assets/b9d01a90-dc96-40ef-84c0-6a03a08441f7" />
+<img width="1916" height="905" alt="image" src="https://github.com/user-attachments/assets/713dee93-5efd-4d9d-bc62-d1a759351757" />
+<img width="1916" height="905" alt="image" src="https://github.com/user-attachments/assets/975cfff7-b9a2-46f9-960f-68ac159daaee" />
+<img width="1901" height="905" alt="image" src="https://github.com/user-attachments/assets/1a4ca0e1-df95-4b46-a59a-b9068357f7c0" />
+<img width="1901" height="907" alt="image" src="https://github.com/user-attachments/assets/75c0ab7c-aa31-42bb-865a-4b06163f87bd" />
+<img width="1897" height="906" alt="image" src="https://github.com/user-attachments/assets/94ec827a-2159-4991-acf9-22f756cfcd7c" />
+<img width="1901" height="907" alt="image" src="https://github.com/user-attachments/assets/376a0b40-1ac3-4b02-b21c-5d85edb35a62" />
+<img width="1900" height="907" alt="image" src="https://github.com/user-attachments/assets/161591f7-c510-40fe-b9c9-d6f16b9f42da" />
+
+
 ## Features
 
 - 🎬 Track movies you've watched with ratings
